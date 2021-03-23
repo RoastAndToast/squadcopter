@@ -13,10 +13,12 @@ function sysCall_init()
 
     d=sim.getObjectHandle('Quadricopter_base')
 
-    particlesAreVisible=sim.getScriptSimulationParameter(sim.handle_self,'particlesAreVisible')
-    sim.setScriptSimulationParameter(sim.handle_tree,'particlesAreVisible',tostring(particlesAreVisible))
-    simulateParticles=sim.getScriptSimulationParameter(sim.handle_self,'simulateParticles')
-    sim.setScriptSimulationParameter(sim.handle_tree,'simulateParticles',tostring(simulateParticles))
+    --particlesAreVisible=sim.getScriptSimulationParameter(sim.handle_self,'particlesAreVisible')
+    particlesAreVisible = false
+    --sim.setScriptSimulationParameter(sim.handle_tree,'particlesAreVisible',tostring(particlesAreVisible))
+    --simulateParticles=sim.getScriptSimulationParameter(sim.handle_self,'simulateParticles')
+    simulateParticles = false
+    --sim.setScriptSimulationParameter(sim.handle_tree,'simulateParticles',tostring(simulateParticles))
 
     propellerScripts={-1,-1,-1,-1}
     for i=1,4,1 do
