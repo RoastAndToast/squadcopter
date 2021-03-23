@@ -4,7 +4,8 @@ function sysCall_init()
     propellerJoint=sim.getObjectHandle('Quadricopter_propeller_joint1')
     type=sim.particle_roughspheres+sim.particle_respondable1to4+sim.particle_respondable5to8+
         sim.particle_cyclic+sim.particle_ignoresgravity
-    simulateParticles=sim.getScriptSimulationParameter(sim.handle_self,'simulateParticles')
+    --simulateParticles=sim.getScriptSimulationParameter(sim.handle_self,'simulateParticles')
+    simulateParticles = false
     particleVelocity=sim.getScriptSimulationParameter(sim.handle_self,'particleVelocity')
     particleCountPerSecond=sim.getScriptSimulationParameter(sim.handle_self,'particleCountPerSecond')
     particleDensity=sim.getScriptSimulationParameter(sim.handle_self,'particleDensity')
