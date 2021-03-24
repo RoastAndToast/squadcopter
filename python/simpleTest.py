@@ -9,15 +9,6 @@
 # IMPORTANT: for each successful call to simxStart, there
 # should be a corresponding call to simxFinish at the end!
 
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from cv2 import cv2
-import array
-import sys
-import numpy as np
-import math
-import time
-
 try:
     import sim
 except:
@@ -29,66 +20,7 @@ except:
     print ('--------------------------------------------------------------')
     print ('')
 
-# Lucas Kanade parameters
-lk_params = dict(winSize = (25,25),
-                maxLevel = 2,
-                criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
-
-
-
-def streamVisionSensor():
-
-    # Mouse function
-    def select_point(event,x,y, flags, params): 
-        global point, point_selected, old_points
-        if event == cv2.EVENT_LBUTTONDOWN:
-            point = (x,y)
-            point_selected = True
-            old_points = np.array([[x,y]], dtype = np.float32)
-            print("TRU")
-
-    cv2.namedWindow('frame')
-
-    point_selected = False
-    point = ()
-    old_points = np.array([[]])    
-    #Get the handle of vision sensor
-    errorCode,visionSensorHandle = sim.simxGetObjectHandle(clientID,'Vision_sensor',sim.simx_opmode_oneshot_wait)
-    #Get the image
-    errorCode,resolution,image = sim.simxGetVisionSensorImage(clientID,visionSensorHandle,0,sim.simx_opmode_streaming)
-    time.sleep(0.5)
-
-    errorCode,resolution,image = sim.simxGetVisionSensorImage(clientID,visionSensorHandle,0,sim.simx_opmode_buffer)
-    sensorImage = np.array(image,dtype=np.uint8)
-    sensorImage.resize([resolution[1],resolution[0],3])
-    old_image = sensorImage.copy()
-
-    while (sim.simxGetConnectionId(clientID)!=-1): 
-        cv2.setMouseCallback('frame', select_point)
-
-        #Get the image of the vision sensor
-        errorCode,resolution,image = sim.simxGetVisionSensorImage(clientID,visionSensorHandle,0,sim.simx_opmode_buffer)
-        #Transform the image so it can be displayed using pyplot
-        sensorImage = np.array(image,dtype=np.uint8)
-        sensorImage.resize([resolution[1],resolution[0],3])
-        displayedImage = cv2.resize(sensorImage, (480,480))
-
-        if point_selected is True:
-            print ("coco")
-            new_points, status, error = cv2.calcOpticalFlowPyrLK(old_image, sensorImage, old_points, None, **lk_params)
-            old_image = sensorImage.copy() #current frame becomes previous
-            old_points = new_points #current x,y points become previous
-            x,y = new_points.ravel()
-            cv2.circle(sensorImage, (x,y),8, (0,0,0),-1)
-            
-
-        cv2.imshow('frame',displayedImage)
-        if cv2.waitKey(30) & 0xFF == ord('q'):
-            break
-    cv2.destroyAllWindows()    
-    print ('End of Simulation')
-
-
+import time
 
 print ('Program started')
 sim.simxFinish(-1) # just in case, close all opened connections
@@ -105,12 +37,19 @@ if clientID!=-1:
 
     time.sleep(2)
 
-    #sim.simxAddStatusbarMessage(clientID,'Hello CoppeliaSim!',sim.simx_opmode_oneshot)
+    # Now retrieve streaming data (i.e. in a non-blocking fashion):
+    startTime=time.time()
+    sim.simxGetIntegerParameter(clientID,sim.sim_intparam_mouse_x,sim.simx_opmode_streaming) # Initialize streaming
+    while time.time()-startTime < 5:
+        returnCode,data=sim.simxGetIntegerParameter(clientID,sim.sim_intparam_mouse_x,sim.simx_opmode_buffer) # Try to retrieve the streamed data
+        if returnCode==sim.simx_return_ok: # After initialization of streaming, it will take a few ms before the first value arrives, so check the return code
+            print ('Mouse position x: ',data) # Mouse position x is actualized when the cursor is over CoppeliaSim's window
+        time.sleep(0.005)
 
-    streamVisionSensor()
-    
+    # Now send some data to CoppeliaSim in a non-blocking fashion:
+    sim.simxAddStatusbarMessage(clientID,'Hello CoppeliaSim!',sim.simx_opmode_oneshot)
 
-    # Before closing the connection to CoppeliaSim, make sure that the last command sent out had time to arrive. You can guarantee this with (for exaplte):
+    # Before closing the connection to CoppeliaSim, make sure that the last command sent out had time to arrive. You can guarantee this with (for example):
     sim.simxGetPingTime(clientID)
 
     # Now close the connection to CoppeliaSim:
@@ -118,6 +57,3 @@ if clientID!=-1:
 else:
     print ('Failed connecting to remote API server')
 print ('Program ended')
-
-
-
