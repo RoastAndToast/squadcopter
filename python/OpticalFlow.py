@@ -21,13 +21,16 @@ except:
     print ('--------------------------------------------------------------')
     print ('')
 
+point_selected = False
+old_points = np.array([[]])   
+
 # Lucas Kanade parameters
-lk_params = dict(winSize = (25,25),
+lk_params = dict(winSize = (50,50),
                 maxLevel = 2,
                 criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
 def streamVisionSensor():
-
+    global point_selected, old_points
     # Mouse function
     def select_point(event,x,y, flags, params): 
         global point, point_selected, old_points
@@ -35,49 +38,54 @@ def streamVisionSensor():
             point = (x,y)
             point_selected = True
             old_points = np.array([[x,y]], dtype = np.float32)
-            print("TRU")
 
     cv2.namedWindow('frame')
 
-    point_selected = False
-    point = ()
-    old_points = np.array([[]])    
-    #Get the handle of vision sensor
+    #point = ()
+    #old_points = np.array([[]])    
+
+
     errorCode,visionSensorHandle = sim.simxGetObjectHandle(clientID,'Vision_sensor',sim.simx_opmode_oneshot_wait)
-    #Get the image
     errorCode,resolution,image = sim.simxGetVisionSensorImage(clientID,visionSensorHandle,0,sim.simx_opmode_streaming)
     time.sleep(0.5)
+
 
     errorCode,resolution,image = sim.simxGetVisionSensorImage(clientID,visionSensorHandle,0,sim.simx_opmode_buffer)
     sensorImage = np.array(image,dtype=np.uint8)
     sensorImage.resize([resolution[1],resolution[0],3])
+    sensorImage = cv2.cvtColor(sensorImage, cv2.COLOR_BGR2GRAY)
+    sensorImage = cv2.flip(sensorImage,1)
     old_image = sensorImage.copy()
+
 
     while (sim.simxGetConnectionId(clientID)!=-1): 
         cv2.setMouseCallback('frame', select_point)
 
-        #Get the image of the vision sensor
+
         errorCode,resolution,image = sim.simxGetVisionSensorImage(clientID,visionSensorHandle,0,sim.simx_opmode_buffer)
-        #Transform the image so it can be displayed using pyplot
         sensorImage = np.array(image,dtype=np.uint8)
         sensorImage.resize([resolution[1],resolution[0],3])
-        displayedImage = cv2.resize(sensorImage, (480,480))
-
-        if point_selected is True:
-            print ("coco")
+        sensorImage = cv2.cvtColor(sensorImage, cv2.COLOR_BGR2GRAY)
+        sensorImage = cv2.flip(sensorImage,1)
+        
+        
+        if point_selected:
             new_points, status, error = cv2.calcOpticalFlowPyrLK(old_image, sensorImage, old_points, None, **lk_params)
             old_image = sensorImage.copy() #current frame becomes previous
             old_points = new_points #current x,y points become previous
             x,y = new_points.ravel()
             cv2.circle(sensorImage, (x,y),8, (0,0,0),-1)
+               
             
-
+        displayedImage = cv2.resize(sensorImage, (480,480))
         cv2.imshow('frame',displayedImage)
+        
         if cv2.waitKey(30) & 0xFF == ord('q'):
             break
+         
     cv2.destroyAllWindows()    
     print ('End of Simulation')
-
+    point_selected = False
 
 
 print ('Program started')
@@ -93,9 +101,12 @@ if clientID!=-1:
     else:
         print ('Remote API function call returned with error code: ',res)
 
-    time.sleep(1)
+    time.sleep(0.5)
 
-    # main code runs here
+    point = ()
+    old_points = np.array([[]])    
+    point_selected = False
+    
     streamVisionSensor()
     
 
