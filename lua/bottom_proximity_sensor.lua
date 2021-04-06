@@ -11,7 +11,7 @@ function sysCall_sensing()
     -- get distance from sensor
     distance = getDistance(bottom_sensor)
     -- do something with distance (send to py, etc.)
-    print(distance)
+    -- print(distance)
 end
 
 function sysCall_cleanup()
