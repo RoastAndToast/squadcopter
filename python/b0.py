@@ -10,10 +10,14 @@ if platform.system() in ('cli', 'Windows'):
     prefix, suffix = '', '.dll'
 if platform.system() in ('Darwin', ):
     suffix = '.dylib'
+
+
 for path in ('.', 'build', '../../build'):
     fullpath = os.path.join(os.path.dirname(__file__), path)
+    print(fullpath)
     if not os.path.isdir(fullpath): continue
     libb0_fullpath = os.path.join(fullpath, '%sb0%s' % (prefix, suffix))
+    print(libb0_fullpath)
     if os.path.exists(libb0_fullpath):
         libb0 = ct.CDLL(libb0_fullpath)
         break

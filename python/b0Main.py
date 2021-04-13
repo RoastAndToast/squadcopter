@@ -77,17 +77,19 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         sensorImage = np.array(image, dtype=np.uint8)
         sensorImage.resize([resolution[1],resolution[0],3])
         sensorImage = cv2.cvtColor(sensorImage, cv2.COLOR_BGR2GRAY)
+        sensorImage = cv2.flip(sensorImage,0)
         (_, sensorImage) = cv2.threshold(sensorImage, 200, 255, cv2.THRESH_TRUNC)
 
         if (x > image_high) or (x < image_border) or (y > image_high) or (y < image_border):
             select_point()
 
+        #if (old_image == None): ??
         if (old_image == []):
             old_image = sensorImage.copy()
         new_points, _, _ = cv2.calcOpticalFlowPyrLK(old_image, sensorImage, old_points, None, **lk_params)
         old_image = sensorImage.copy() #current frame becomes previous
-        dx = new_points[0][0] - old_points[0][0]
-        dy = new_points[0][1] - old_points[0][1]
+        dy = new_points[0][0] - old_points[0][0] # 13.04.2021_2 Maksims Terjohins fix - swapped dx and dy for propper output
+        dx = new_points[0][1] - old_points[0][1]
         old_points = new_points #current x,y points become previous
 
         half_width = tan_angle * position[2]
@@ -98,8 +100,9 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
 
         x,y = new_points.ravel()
 
-        cv2.circle(sensorImage, (x,y),8, (0,0,255),-1) # draw red circle
-        cv2.imshow('frame',sensorImage)
+        displayedImage = cv2.cvtColor(sensorImage, cv2.COLOR_GRAY2BGR)
+        cv2.circle(displayedImage, (x,y),8, (0,0,255),-1) # draw red circle
+        cv2.imshow('frame',displayedImage)
         
     def stepSimulation():
         if client.runInSynchronousMode:
