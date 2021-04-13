@@ -10,10 +10,14 @@ if platform.system() in ('cli', 'Windows'):
     prefix, suffix = '', '.dll'
 if platform.system() in ('Darwin', ):
     suffix = '.dylib'
+
+
 for path in ('.', 'build', '../../build'):
     fullpath = os.path.join(os.path.dirname(__file__), path)
+    print(fullpath)
     if not os.path.isdir(fullpath): continue
     libb0_fullpath = os.path.join(fullpath, '%sb0%s' % (prefix, suffix))
+    print(libb0_fullpath)
     if os.path.exists(libb0_fullpath):
         libb0 = ct.CDLL(libb0_fullpath)
         break
@@ -88,7 +92,7 @@ _("b0_service_server_get_service_name", str, ct.c_void_p)
 _("b0_service_server_log", None, ct.c_void_p, ct.c_int, str)
 
 def init():
-    if b0_is_initialized()==0:
+    if b0_is_inictialized()==0:
         argc = ct.c_int(1)
         argc_p = ct.byref(argc)
         argv = ct.c_char_p(b'b0python')

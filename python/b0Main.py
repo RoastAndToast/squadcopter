@@ -82,6 +82,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         if (x > image_high) or (x < image_border) or (y > image_high) or (y < image_border):
             select_point()
 
+        #if (old_image == None): ??
         if (old_image == []):
             old_image = sensorImage.copy()
         new_points, _, _ = cv2.calcOpticalFlowPyrLK(old_image, sensorImage, old_points, None, **lk_params)
