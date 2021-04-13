@@ -12,6 +12,7 @@ function sysCall_init()
     -- This control algo was quickly written and is dirty and not optimal. It just serves as a SIMPLE example
 
     d=sim.getObjectHandle('Quadricopter_base')
+    init_pos = sim.getObjectPosition(d, -1)
 
     --particlesAreVisible=sim.getScriptSimulationParameter(sim.handle_self,'particlesAreVisible')
     particlesAreVisible = false
@@ -67,6 +68,13 @@ function sysCall_actuation()
     s=sim.getObjectSizeFactor(d)
     
     pos=sim.getObjectPosition(d,-1)
+    pos_relative_x = pos[1] - init_pos[1]
+    pos_relative_y = pos[2] - init_pos[2]
+    pos_relative_z = pos[3]
+    x_str = string.format("%.2f", pos_relative_x)
+    y_str = string.format(" %.2f", pos_relative_y)
+    z_str = string.format(" %.2f", pos_relative_z)
+    print(x_str, y_str, z_str)
     if (fakeShadow) then
         itemData={pos[1],pos[2],0.002,0,0,1,0.2*s}
         sim.addDrawingObjectItem(shadowCont,itemData)
