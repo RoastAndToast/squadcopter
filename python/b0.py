@@ -92,7 +92,7 @@ _("b0_service_server_get_service_name", str, ct.c_void_p)
 _("b0_service_server_log", None, ct.c_void_p, ct.c_int, str)
 
 def init():
-    if b0_is_inictialized()==0:
+    if b0_is_initialized()==0:
         argc = ct.c_int(1)
         argc_p = ct.byref(argc)
         argv = ct.c_char_p(b'b0python')
