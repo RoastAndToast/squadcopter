@@ -6,7 +6,7 @@ end
 function sysCall_actuation()
     -- put your actuation code here
     message,data,data2=sim.getSimulatorMessage()
-    thisHandle=sim.getObjectHandle('Quadricopter_target')
+    thisHandle=sim.getObjectHandle('Quadcopter_target')
     pos=sim.getObjectPosition(thisHandle, -1)
     x=pos[1]
     y=pos[2]
