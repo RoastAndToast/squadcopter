@@ -1,6 +1,5 @@
 function sysCall_init()
     -- get sensor object
-    bottom_sensor = sim.getObjectHandle('bottom_proximity_sensor')
 end
 
 function sysCall_actuation()
@@ -9,7 +8,6 @@ end
 
 function sysCall_sensing()
     -- get distance from sensor
-    distance = getDistance(bottom_sensor)
     -- do something with distance (send to py, etc.)
     -- print(distance)
 end
