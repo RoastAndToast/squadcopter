@@ -9,13 +9,13 @@ function sysCall_init()
     particleScatteringAngle=30
     particleLifeTime=0.5
     maxParticleCount=50
-
+ 
     -- Detatch the manipulation sphere:
     targetObj=sim.getObjectHandle('Quadcopter_target')
     sim.setObjectParent(targetObj,-1,true)
-
+ 
     -- This control algo was quickly written and is dirty and not optimal. It just serves as a SIMPLE example
-
+ 
     propellerHandles={}
     jointHandles={}
     particleObjects={-1,-1,-1,-1}
@@ -32,29 +32,30 @@ function sysCall_init()
     end
     heli=sim.getObjectHandle(sim.handle_self)
     d=sim.getObjectHandle('Quadcopter_base')
-
+ 
     init_pos = sim.getObjectPosition(d, -1)
-	inti_ori = sim.getObjectOrientation(d, -1)
-
+    inti_ori = sim.getObjectOrientation(d, -1)
+ 
     pParam=2
     iParam=0
     dParam=0
     vParam=-2
-
+ 
     cumul=0
     lastE=0
     pAlphaE=0
     pBetaE=0
     psp2=0
     psp1=0
-
+ 
     prevEuler=0
     --if true, then can be moved with keyboard after unchecking sets current pos as (0, 0)
     manualMode = false
-
+ 
     --Target XYZ. Target position can be relative, but then
-	--initial pos is relative meaning 0, 0. Z pos is always absolute.
-    targetPos = {0, 0, 0.3}
+    --initial pos is relative meaning 0, 0. Z pos is always absolute.
+    --targetPos = {0, 0, 0.3}
+    targetPos = {0, 0, 1}
     targetRot = 0
     
     --Proximity sensor
@@ -62,24 +63,16 @@ function sysCall_init()
     bottom_proximity = sim.getObjectHandle('bottom_proximity_sensor')
     dist = 0
     
-    --xml for control ui
+    -- xml for control ui
     xml = [[
         <ui closable="false" placement="relative" position="500,300" layout="hbox">
         <group layout="vbox">
-        <label text="X rel" id="2002" />
-        <hslider minimum="-1000" maximum="1000" on-change="XChange" />
-        <label text="Y rel" id="2003" />
-        <hslider minimum="-1000" maximum="1000" on-change="YChange" />
-        <label text="Z rel" id="2004" />
-        <hslider minimum="100" maximum="300" on-change="ZChange" />
-        <label text="Rot" id="2005" />
-        <hslider minimum="-1500" maximum="1500" on-change="RotChange" />
         <checkbox text="Manual mode(keyboard)" on-change="ManualChange" />
         </group>
         </ui>
     ]]
     ui = simUI.create(xml)
-
+    --
     -- Prepare 2 floating views with the camera views:
     floorCam=sim.getObjectHandle('Quadricopter_floorCamera')
     frontCam=sim.getObjectHandle('Quadricopter_frontCamera')
@@ -87,12 +80,12 @@ function sysCall_init()
     frontView=sim.floatingViewAdd(0.7,0.9,0.2,0.2,0)
     sim.adjustView(floorView,floorCam,64)
     sim.adjustView(frontView,frontCam,64)
-
+ 
     if (fakeShadow) then
         shadowCont=sim.addDrawingObject(sim.drawing_discpoints+sim.drawing_cyclic+sim.drawing_25percenttransparency+sim.drawing_50percenttransparency+sim.drawing_itemsizes,0.2,0,-1,1)
     end
 end
-
+ 
 function sysCall_cleanup() 
     if (fakeShadow) then
         sim.removeDrawingObject(shadowCont)
@@ -101,18 +94,18 @@ function sysCall_cleanup()
         sim.removeParticleObject(particleObjects[i])
     end
 end 
-
+ 
 function sysCall_sensing()
     dist = sim.callScriptFunction('getDistance@bottom_proximity_sensor', bottom_proximity_handle, bottom_proximity)
 end
-
+ 
 function sysCall_actuation() 
     pos=sim.getObjectPosition(d,-1)
     if (fakeShadow) then
         itemData={pos[1],pos[2],0.002,0,0,1,0.2}
         sim.addDrawingObjectItem(shadowCont,itemData)
     end
-
+ 
     --Relative position for debugging
     pos=sim.getObjectPosition(d,-1)
     pos_relative_x = pos[1] - init_pos[1]
@@ -122,27 +115,29 @@ function sysCall_actuation()
     y_str = string.format(" %.2f", pos_relative_y)
     z_str = string.format(" %.2f", pos_relative_z)
     d_str = string.format(" %.2f", dist)
-    print(x_str, y_str, z_str, d_str)
-
+    -- print(x_str, y_str, z_str, d_str)
+ 
     --change to pos form flow thing
     currPos = {pos_relative_x, pos_relative_y, pos_relative_z}
     currOri = sim.getObjectOrientation(d, -1)[3] - inti_ori[3]
     
+    if(manualMode == 2) then
+    else
+        targetAbsPos = {init_pos[1] + targetPos[1], init_pos[2] + targetPos[2], targetPos[3]}
+        sim.setObjectPosition(targetObj, -1, targetAbsPos)
+    end
+ 
+    sp = sim.getObjectPosition(targetObj,d)
+ 
     -- Vertical control:
     l=sim.getVelocity(heli)
-    e = (targetPos[3]-dist)
+    e = (sp[3]-dist)
     cumul=cumul+e
     pv=pParam*e
     thrust=5.45+pv+iParam*cumul+dParam*(e-lastE)+l[3]*vParam
     lastE=e
     
-    if (manualMode == 2) then
-    else
-        targetAbsPos = {init_pos[1] + targetPos[1], init_pos[2] + targetPos[2], init_pos[3]}
-        sim.setObjectPosition(targetObj, -1, targetAbsPos)
-    end
     -- Horizontal control: 
-    sp = sim.getObjectPosition(targetObj,d)
     mH= sim.getObjectMatrix(d,-1)
     vx={1,0,0}
     vx=sim.multiplyVector(mH,vx)
@@ -170,8 +165,13 @@ function sysCall_actuation()
     handlePropeller(3,thrust*(1+alphaCorr-betaCorr+rotCorr))
     handlePropeller(4,thrust*(1+alphaCorr+betaCorr-rotCorr))
 end 
-
-
+ 
+function setTagetPosition(targetPosPy)
+    -- targetPos = {targetPosPy[1], targetPosPy[2], targetPosPy[3]}
+    print('setTargetPosition')
+    targetPos[1] = targetPosPy
+end
+ 
 function handlePropeller(index,particleVelocity)
     propellerRespondable=propellerHandles[index]
     propellerJoint=jointHandles[index]
@@ -179,7 +179,7 @@ function handlePropeller(index,particleVelocity)
     particleObject=particleObjects[index]
     maxParticleDeviation=math.tan(particleScatteringAngle*0.5*math.pi/180)*particleVelocity
     notFullParticles=0
-
+ 
     local t=sim.getSimulationTime()
     sim.setJointPosition(propellerJoint,t*10)
     ts=sim.getSimulationTimeStep()
@@ -224,27 +224,27 @@ function handlePropeller(index,particleVelocity)
     torque=sim.multiplyVector(m,torque)
     sim.addForceAndTorque(propellerRespondable,force,torque)
 end
-
---functions for sliders
+ 
+--[[functions for sliders
 function XChange(uiHandle, id, newValue)
     targetPos[1] = newValue / 500
     simUI.setLabelText(ui, 2002, "X="..newValue/500)
 end
-
+ 
 function YChange(uiHandle, id, newValue)
     targetPos[2] = newValue / 500
     simUI.setLabelText(ui, 2003, "Y="..newValue/500)
 end
-
+ 
 function ZChange(uiHandle, id, newValue)
     targetPos[3] = newValue / 500
     simUI.setLabelText(ui, 2004, "Z="..newValue/500)
 end
-
+ 
 function RotChange(uiHandle, id, newValue)
     targetRot = newValue / 500
     simUI.setLabelText(ui, 2005, "Rot="..newValue/500)
-end
+end--]]
 function ManualChange(uiHandle, id, newValue)
     manualMode = newValue
 end

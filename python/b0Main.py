@@ -68,7 +68,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
             position[2] = z
         else:
             print('Bottom proximity sensor out of range')
-    
+
     # Handles new image from vision sensor
     def imageCallback(msg):
         global x, y, old_image, old_points
@@ -96,7 +96,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         position[0] += (dx * half_width) / (image_width / 2)
         position[1] += (dy * half_width) / (image_width / 2)
         # position[2] is set by bottomProximitySensorCallback()
-        print([round(num, 2) for num in position])
+        # print([round(num, 2) for num in position])
 
         x,y = new_points.ravel()
 
@@ -114,7 +114,10 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
             client.simxSpinOnce()
 
     visionSensorHandle=client.simxGetObjectHandle('Vision_sensor',client.simxServiceCall())
+    quadcopterTargetHandle=client.simxGetObjectHandle('Quadcopter_target',client.simxServiceCall())
+    # quadcopterHandle = client.simxGetObjectHandle('Quadcopter_base', client.simxServiceCall())
     bottomProximitySensorHandle=client.simxGetObjectHandle('bottom_proximity_sensor',client.simxServiceCall())
+
 
     cv2.destroyAllWindows()
     cv2.namedWindow('frame')
@@ -128,10 +131,21 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     client.simxGetSimulationStepStarted(client.simxDefaultSubscriber(simulationStepStarted))
     client.simxGetSimulationStepDone(client.simxDefaultSubscriber(simulationStepDone))
     client.simxStartSimulation(client.simxDefaultPublisher())
+
+    quadcopterTargetInitMsg = client.simxGetObjectPosition(quadcopterTargetHandle[1], -1, client.simxServiceCall())
+    quadcopterTargetPos = quadcopterTargetInitMsg[1]
     
+    temp = 0
     # main loop
     while True:
         stepSimulation()
+
+        # drone control example:
+        if temp < 100:
+            quadcopterTargetPos[1] += 0.005
+            client.simxSetObjectPosition(quadcopterTargetHandle[1], -1, quadcopterTargetPos, client.simxServiceCall())
+            temp += 1
+        
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cv2.destroyAllWindows()
