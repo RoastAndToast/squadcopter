@@ -15,16 +15,16 @@ function sysCall_actuation()
     if (message==sim.message_keypress) then
         
         if (data[1]==100) then -- rightkey
-            y=y-delta_mov
-        end
-        if (data[1]==97) then -- left key
-            y=y+delta_mov
-        end
-        if (data[1]==119) then -- up key
             x=x+delta_mov
         end
-        if (data[1]==115) then -- down key
+        if (data[1]==97) then -- left key
             x=x-delta_mov
+        end
+        if (data[1]==119) then -- up key
+            y=y+delta_mov
+        end
+        if (data[1]==115) then -- down key
+            y=y-delta_mov
         end
         if (data[1]==122) then -- down key
             z=z-delta_mov
@@ -32,7 +32,6 @@ function sysCall_actuation()
         if (data[1]==120) then -- down key
             z=z+delta_mov
         end
-
         newPos={x,y,z}
         sim.setObjectPosition(thisHandle, -1, newPos)
     end
