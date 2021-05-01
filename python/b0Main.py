@@ -44,6 +44,15 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     old_image = []
     old_points = np.array([[x,y]], dtype = np.float32)
 
+    FORWARD = 0
+    BACKWARD = 1
+    LEFT = 2
+    RIGHT = 3
+    direction = FORWARD
+
+    sensorValues = [0 for i in range(8)]
+
+
     # selects image center
     def select_point(): 
         global point, old_points, x ,y
@@ -58,11 +67,60 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     def simulationStepDone(msg):
         client.doNextStep=True
 
+    # def forwardProximitySensorCallback(msg):
+    def directionProximitySensorCallback(sensor_id, msg):
+        if msg[0] == False:
+            return
+        detected = msg[1]
+        if detected != 0:
+            sensorValues[sensor_id] = msg[2]
+        else:
+            sensorValues[sensor_id] = -1 # -1 == infinity
+
+    def F_ProximitySensorCallback(msg):
+        sensor_id = 0
+        directionProximitySensorCallback(sensor_id,msg)
+    def FR_ProximitySensorCallback(msg):
+        sensor_id = 1
+        directionProximitySensorCallback(sensor_id,msg)
+    def R_ProximitySensorCallback(msg):
+        sensor_id = 2
+        directionProximitySensorCallback(sensor_id,msg)
+    def BR_ProximitySensorCallback(msg):
+        sensor_id = 3
+        directionProximitySensorCallback(sensor_id,msg)
+    def B_ProximitySensorCallback(msg):
+        sensor_id = 4
+        directionProximitySensorCallback(sensor_id,msg)
+    def BL_ProximitySensorCallback(msg):
+        sensor_id = 5
+        directionProximitySensorCallback(sensor_id,msg)
+    def L_ProximitySensorCallback(msg):
+        sensor_id = 6
+        directionProximitySensorCallback(sensor_id,msg)
+    def FL_ProximitySensorCallback(msg):
+        sensor_id = 7
+        directionProximitySensorCallback(sensor_id,msg)
+        
+        
+    def setDirection(dx, dy):
+        if (abs(dx) > abs(dy)):
+            if (dx > 0):
+                direction = RIGHT
+            else:
+                direction = LEFT
+        else:
+            if (dy > 0):
+                direction = FORWARD
+            else: 
+                direction = BACKWARD
+        print(direction)
+
     # Handles new data from bottom proximity sensor        
     def bottomProximitySensorCallback(msg):
         if msg[0] == False:
             return
-        detected = msg[1]
+        detected = msg[1] 
         z = msg[2]
         if detected != 0:
             position[2] = z
@@ -90,6 +148,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         old_image = sensorImage.copy() #current frame becomes previous
         dy = new_points[0][0] - old_points[0][0] # 13.04.2021_2 Maksims Terjohins fix - swapped dx and dy for propper output
         dx = new_points[0][1] - old_points[0][1]
+        setDirection(dx,dy)
         old_points = new_points #current x,y points become previous
 
         half_width = tan_angle * position[2]
@@ -118,6 +177,20 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     # quadcopterHandle = client.simxGetObjectHandle('Quadcopter_base', client.simxServiceCall())
     bottomProximitySensorHandle=client.simxGetObjectHandle('bottom_proximity_sensor',client.simxServiceCall())
 
+    # bottomProximitySensorHandle=client.simxGetObjectHandle('bottom_proximity_sensor',client.simxServiceCall())
+    # clockwise, 0 for forward sensor
+
+    # sensor handle array
+    sensorHandles=[]
+    sensorHandles.append(client.simxGetObjectHandle('Proximity_sensor_f', client.simxServiceCall()))
+    sensorHandles.append(client.simxGetObjectHandle('Proximity_sensor_fr', client.simxServiceCall()))
+    sensorHandles.append(client.simxGetObjectHandle('Proximity_sensor_r', client.simxServiceCall()))
+    sensorHandles.append(client.simxGetObjectHandle('Proximity_sensor_br', client.simxServiceCall()))
+    sensorHandles.append(client.simxGetObjectHandle('Proximity_sensor_b', client.simxServiceCall()))
+    sensorHandles.append(client.simxGetObjectHandle('Proximity_sensor_bl', client.simxServiceCall()))
+    sensorHandles.append(client.simxGetObjectHandle('Proximity_sensor_l', client.simxServiceCall()))
+    sensorHandles.append(client.simxGetObjectHandle('Proximity_sensor_fl', client.simxServiceCall()))
+
 
     cv2.destroyAllWindows()
     cv2.namedWindow('frame')
@@ -127,6 +200,18 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
 
     client.simxGetVisionSensorImage(visionSensorHandle[1],False,client.simxDefaultSubscriber(imageCallback))
     client.simxReadProximitySensor(bottomProximitySensorHandle[1],client.simxDefaultSubscriber(bottomProximitySensorCallback))
+    #client.simxReadProximitySensor(sensorHandles[0][1],client.simxDefaultSubscriber(forwardProximitySensorCallback))
+    
+    # 8 subscriptions for each sensor
+    client.simxReadProximitySensor(sensorHandles[0][1],client.simxDefaultSubscriber(F_ProximitySensorCallback))
+    client.simxReadProximitySensor(sensorHandles[1][1],client.simxDefaultSubscriber(FR_ProximitySensorCallback))
+    client.simxReadProximitySensor(sensorHandles[2][1],client.simxDefaultSubscriber(R_ProximitySensorCallback))
+    client.simxReadProximitySensor(sensorHandles[3][1],client.simxDefaultSubscriber(BR_ProximitySensorCallback))
+    client.simxReadProximitySensor(sensorHandles[4][1],client.simxDefaultSubscriber(B_ProximitySensorCallback))
+    client.simxReadProximitySensor(sensorHandles[5][1],client.simxDefaultSubscriber(BL_ProximitySensorCallback))
+    client.simxReadProximitySensor(sensorHandles[6][1],client.simxDefaultSubscriber(L_ProximitySensorCallback))
+    client.simxReadProximitySensor(sensorHandles[0][1],client.simxDefaultSubscriber(FL_ProximitySensorCallback))
+
 
     client.simxGetSimulationStepStarted(client.simxDefaultSubscriber(simulationStepStarted))
     client.simxGetSimulationStepDone(client.simxDefaultSubscriber(simulationStepDone))
@@ -139,11 +224,10 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     # main loop
     while True:
         stepSimulation()
-
         # drone control example:
         if temp < 100:
             quadcopterTargetPos[1] += 0.005
-            client.simxSetObjectPosition(quadcopterTargetHandle[1], -1, quadcopterTargetPos, client.simxServiceCall())
+            # client.simxSetObjectPosition(quadcopterTargetHandle[1], -1, quadcopterTargetPos, client.simxServiceCall())
             temp += 1
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
