@@ -50,6 +50,9 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     RIGHT = 3
     direction = FORWARD
 
+    # drone movement speed
+    speed = 0.005
+
     sensorValues = [0 for i in range(8)]
 
 
@@ -67,7 +70,18 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     def simulationStepDone(msg):
         client.doNextStep=True
 
-    # def forwardProximitySensorCallback(msg):
+    # get 5 sensor values (l, fl, f, fr, r) according to movement direction
+    def getForwardDistances():
+        if direction == FORWARD:
+            return sensorValues[6:8] + sensorValues[0:3]
+        elif direction == RIGHT:
+            return sensorValues[0:5]
+        elif direction == BACKWARD:
+            return sensorValues[2:7]
+        else:
+            return sensorValues[4:8] + sensorValues[0:1]
+
+    # Direction proximity sensor callback
     def directionProximitySensorCallback(sensor_id, msg):
         if msg[0] == False:
             return
@@ -77,44 +91,45 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         else:
             sensorValues[sensor_id] = -1 # -1 == infinity
 
+    # Callbacks for side proximity sensors:
     def F_ProximitySensorCallback(msg):
-        sensor_id = 0
-        directionProximitySensorCallback(sensor_id,msg)
+        directionProximitySensorCallback(0,msg)
     def FR_ProximitySensorCallback(msg):
-        sensor_id = 1
-        directionProximitySensorCallback(sensor_id,msg)
+        directionProximitySensorCallback(1,msg)
     def R_ProximitySensorCallback(msg):
-        sensor_id = 2
-        directionProximitySensorCallback(sensor_id,msg)
+        directionProximitySensorCallback(2,msg)
     def BR_ProximitySensorCallback(msg):
-        sensor_id = 3
-        directionProximitySensorCallback(sensor_id,msg)
+        directionProximitySensorCallback(3,msg)
     def B_ProximitySensorCallback(msg):
-        sensor_id = 4
-        directionProximitySensorCallback(sensor_id,msg)
+        directionProximitySensorCallback(4,msg)
     def BL_ProximitySensorCallback(msg):
-        sensor_id = 5
-        directionProximitySensorCallback(sensor_id,msg)
+        directionProximitySensorCallback(5,msg)
     def L_ProximitySensorCallback(msg):
-        sensor_id = 6
-        directionProximitySensorCallback(sensor_id,msg)
+        directionProximitySensorCallback(6,msg)
     def FL_ProximitySensorCallback(msg):
-        sensor_id = 7
-        directionProximitySensorCallback(sensor_id,msg)
+        directionProximitySensorCallback(7,msg)
         
-        
+    # Set direction value
     def setDirection(dx, dy):
+        global direction
         if (abs(dx) > abs(dy)):
             if (dx > 0):
-                direction = RIGHT
+                direction = FORWARD
             else:
-                direction = LEFT
+                direction = BACKWARD
         else:
             if (dy > 0):
-                direction = FORWARD
+                direction = LEFT
             else: 
-                direction = BACKWARD
-        print(direction)
+                direction = RIGHT
+        '''if direction == FORWARD:
+            print('forward')
+        elif direction == BACKWARD:
+            print('backward')
+        elif direction == LEFT:
+            print('left')
+        else:
+            print('right')'''
 
     # Handles new data from bottom proximity sensor        
     def bottomProximitySensorCallback(msg):
@@ -177,9 +192,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     # quadcopterHandle = client.simxGetObjectHandle('Quadcopter_base', client.simxServiceCall())
     bottomProximitySensorHandle=client.simxGetObjectHandle('bottom_proximity_sensor',client.simxServiceCall())
 
-    # bottomProximitySensorHandle=client.simxGetObjectHandle('bottom_proximity_sensor',client.simxServiceCall())
     # clockwise, 0 for forward sensor
-
     # sensor handle array
     sensorHandles=[]
     sensorHandles.append(client.simxGetObjectHandle('Proximity_sensor_f', client.simxServiceCall()))
@@ -200,7 +213,6 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
 
     client.simxGetVisionSensorImage(visionSensorHandle[1],False,client.simxDefaultSubscriber(imageCallback))
     client.simxReadProximitySensor(bottomProximitySensorHandle[1],client.simxDefaultSubscriber(bottomProximitySensorCallback))
-    #client.simxReadProximitySensor(sensorHandles[0][1],client.simxDefaultSubscriber(forwardProximitySensorCallback))
     
     # 8 subscriptions for each sensor
     client.simxReadProximitySensor(sensorHandles[0][1],client.simxDefaultSubscriber(F_ProximitySensorCallback))
@@ -210,7 +222,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     client.simxReadProximitySensor(sensorHandles[4][1],client.simxDefaultSubscriber(B_ProximitySensorCallback))
     client.simxReadProximitySensor(sensorHandles[5][1],client.simxDefaultSubscriber(BL_ProximitySensorCallback))
     client.simxReadProximitySensor(sensorHandles[6][1],client.simxDefaultSubscriber(L_ProximitySensorCallback))
-    client.simxReadProximitySensor(sensorHandles[0][1],client.simxDefaultSubscriber(FL_ProximitySensorCallback))
+    client.simxReadProximitySensor(sensorHandles[7][1],client.simxDefaultSubscriber(FL_ProximitySensorCallback))
 
 
     client.simxGetSimulationStepStarted(client.simxDefaultSubscriber(simulationStepStarted))
@@ -223,13 +235,15 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     temp = 0
     # main loop
     while True:
-        stepSimulation()
         # drone control example:
         if temp < 100:
-            quadcopterTargetPos[1] += 0.005
-            # client.simxSetObjectPosition(quadcopterTargetHandle[1], -1, quadcopterTargetPos, client.simxServiceCall())
+            quadcopterTargetPos[1] += speed
+            client.simxSetObjectPosition(quadcopterTargetHandle[1], -1, quadcopterTargetPos, client.simxServiceCall())
             temp += 1
-        
+        stepSimulation()
+        forwardDistances = getForwardDistances()
+        print(forwardDistances)
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cv2.destroyAllWindows()
