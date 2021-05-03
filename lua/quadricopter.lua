@@ -50,7 +50,7 @@ function sysCall_init()
  
     prevEuler=0
     --if true, then can be moved with keyboard after unchecking sets current pos as (0, 0)
-    manualMode = false
+    manualMode = 2
  
     --Target XYZ. Target position can be relative, but then
     --initial pos is relative meaning 0, 0. Z pos is always absolute.
@@ -71,7 +71,7 @@ function sysCall_init()
         </group>
         </ui>
     ]]
-    ui = simUI.create(xml)
+    -- ui = simUI.create(xml)
     --
     -- Prepare 2 floating views with the camera views:
     floorCam=sim.getObjectHandle('Quadricopter_floorCamera')
@@ -115,7 +115,7 @@ function sysCall_actuation()
     y_str = string.format(" %.2f", pos_relative_y)
     z_str = string.format(" %.2f", pos_relative_z)
     d_str = string.format(" %.2f", dist)
-    -- print(x_str, y_str, z_str, d_str)
+    print(x_str, y_str, d_str)
  
     --change to pos form flow thing
     currPos = {pos_relative_x, pos_relative_y, pos_relative_z}

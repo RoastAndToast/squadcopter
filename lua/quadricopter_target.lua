@@ -1,6 +1,6 @@
 function sysCall_init()
     -- do some initialization here
-    delta_mov = 0.0075
+    delta_mov = 0.03
 end
 
 function sysCall_actuation()
