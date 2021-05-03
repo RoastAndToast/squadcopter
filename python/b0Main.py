@@ -48,13 +48,50 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     BACKWARD = 1
     LEFT = 2
     RIGHT = 3
+    
+    # drone current direction
     direction = FORWARD
+
+    # is drone in finish?
+    isFinish = False
 
     # drone movement speed
     speed = 0.005
 
     sensorValues = [0 for i in range(8)]
 
+    # returns rotated direction by 90 degrees to the left
+    def turnLeft():
+        if direction == FORWARD:
+            return LEFT
+        elif direction == RIGHT:
+            return FORWARD
+        elif direction == BACKWARD:
+            return RIGHT
+        else:
+            return BACKWARD
+
+    # returns rotated direction by 90 degrees to the right
+    def turnRight():
+        if direction == FORWARD:
+            return RIGHT
+        elif direction == RIGHT:
+            return BACKWARD
+        elif direction == BACKWARD:
+            return LEFT
+        else:
+            return FORWARD
+
+    # returns rotated direction by 180 degrees
+    def turnBackward():
+        if direction == FORWARD:
+            return BACKWARD
+        elif direction == RIGHT:
+            return LEFT
+        elif direction == BACKWARD:
+            return FORWARD
+        else:
+            return RIGHT
 
     # selects image center
     def select_point(): 
@@ -70,6 +107,13 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     def simulationStepDone(msg):
         client.doNextStep=True
 
+    # returns true, if drone is exaclty in the middle of crossroad.
+    # based on diagonal sensor values
+    def isCrossroadMiddle():
+        return ((abs(sensorValues[1] - sensorValues[3]) <= 0.1)
+        and (abs(sensorValues[1] - sensorValues[5]) <= 0.1)
+        and (abs(sensorValues[1] - sensorValues[7]) <= 0.1))
+
     # get 5 sensor values (l, fl, f, fr, r) according to movement direction
     def getForwardDistances():
         if direction == FORWARD:
@@ -80,6 +124,13 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
             return sensorValues[2:7]
         else:
             return sensorValues[4:8] + sensorValues[0:1]
+
+    # checks if drone is in finish
+    def finishCheck(msg):
+        global isFinish
+        if msg[0] == False:
+            return
+        isFinish = msg[1]
 
     # Direction proximity sensor callback
     def directionProximitySensorCallback(sensor_id, msg):
@@ -122,14 +173,17 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
                 direction = LEFT
             else: 
                 direction = RIGHT
-        '''if direction == FORWARD:
+
+    # print direction
+    def printDirection():
+        if direction == FORWARD:
             print('forward')
         elif direction == BACKWARD:
             print('backward')
         elif direction == LEFT:
             print('left')
         else:
-            print('right')'''
+            print('right')
 
     # Handles new data from bottom proximity sensor        
     def bottomProximitySensorCallback(msg):
@@ -161,16 +215,16 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
             old_image = sensorImage.copy()
         new_points, _, _ = cv2.calcOpticalFlowPyrLK(old_image, sensorImage, old_points, None, **lk_params)
         old_image = sensorImage.copy() #current frame becomes previous
-        dy = new_points[0][0] - old_points[0][0] # 13.04.2021_2 Maksims Terjohins fix - swapped dx and dy for propper output
-        dx = new_points[0][1] - old_points[0][1]
-        setDirection(dx,dy)
+        dx = new_points[0][0] - old_points[0][0] # 13.04.2021_2 Maksims Terjohins fix - swapped dx and dy for propper output
+        dy = new_points[0][1] - old_points[0][1]
+        # setDirection(dx,dy)
         old_points = new_points #current x,y points become previous
 
         half_width = tan_angle * position[2]
         position[0] += (dx * half_width) / (image_width / 2)
         position[1] += (dy * half_width) / (image_width / 2)
         # position[2] is set by bottomProximitySensorCallback()
-        # print([round(num, 2) for num in position])
+        print([round(num, 2) for num in position])
 
         x,y = new_points.ravel()
 
@@ -189,8 +243,10 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
 
     visionSensorHandle=client.simxGetObjectHandle('Vision_sensor',client.simxServiceCall())
     quadcopterTargetHandle=client.simxGetObjectHandle('Quadcopter_target',client.simxServiceCall())
-    # quadcopterHandle = client.simxGetObjectHandle('Quadcopter_base', client.simxServiceCall())
+    quadcopterBaseHandle = client.simxGetObjectHandle('Quadcopter_base', client.simxServiceCall())
+    quadcopterHandle = client.simxGetObjectHandle('Quadcopter', client.simxServiceCall())
     bottomProximitySensorHandle=client.simxGetObjectHandle('bottom_proximity_sensor',client.simxServiceCall())
+    finishFirstHandle = client.simxGetObjectHandle('Finish_first', client.simxServiceCall())
 
     # clockwise, 0 for forward sensor
     # sensor handle array
@@ -224,6 +280,8 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     client.simxReadProximitySensor(sensorHandles[6][1],client.simxDefaultSubscriber(L_ProximitySensorCallback))
     client.simxReadProximitySensor(sensorHandles[7][1],client.simxDefaultSubscriber(FL_ProximitySensorCallback))
 
+    client.simxCheckCollision(quadcopterHandle[1], finishFirstHandle[1], client.simxDefaultSubscriber(finishCheck))
+
 
     client.simxGetSimulationStepStarted(client.simxDefaultSubscriber(simulationStepStarted))
     client.simxGetSimulationStepDone(client.simxDefaultSubscriber(simulationStepDone))
@@ -232,20 +290,37 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     quadcopterTargetInitMsg = client.simxGetObjectPosition(quadcopterTargetHandle[1], -1, client.simxServiceCall())
     quadcopterTargetPos = quadcopterTargetInitMsg[1]
     
-    temp = 0
+    crossRoadProceeded = False
     # main loop
-    while True:
-        # drone control example:
-        if temp < 100:
-            quadcopterTargetPos[1] += speed
-            client.simxSetObjectPosition(quadcopterTargetHandle[1], -1, quadcopterTargetPos, client.simxServiceCall())
-            temp += 1
+    while not isFinish:
         stepSimulation()
         forwardDistances = getForwardDistances()
-        print(forwardDistances)
+        if (not crossRoadProceeded and ((forwardDistances[0] < 0) or (forwardDistances[4] < 0))):
+            # we are on crossroad
+            # check all diagonal sensors if they are almost equal
+            if isCrossroadMiddle():
+                if (forwardDistances[0] < 0):
+                    direction = turnLeft()
+                elif (forwardDistances[4] < 0):
+                    direction = turnRight()
+                crossRoadProceeded = True
+        elif not ((forwardDistances[0] < 0) or (forwardDistances[4] < 0)):
+            crossRoadProceeded = False
+
+        # movement
+        if (direction == FORWARD) or (direction == BACKWARD):
+            coord = 1
+        else:
+            coord = 0
+        if (direction == BACKWARD) or (direction == LEFT):
+            multiplier = -1
+        else:
+            multiplier = 1
+        quadcopterTargetPos[coord] += multiplier * speed
+        client.simxSetObjectPosition(quadcopterTargetHandle[1], -1, quadcopterTargetPos, client.simxServiceCall())
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cv2.destroyAllWindows()
         
-    client.simxStopSimulation(client.simxDefaultPublisher())
+    # client.simxStopSimulation(client.simxDefaultPublisher())
