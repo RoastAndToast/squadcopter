@@ -107,9 +107,25 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     def simulationStepDone(msg):
         client.doNextStep=True
 
+    # returns true, if drone is on crossroad or turn
+    def isCrossroadOrTurn(sensors):
+        left = (sensors[0] < 0)
+        right = (sensors[4] < 0)
+        return left or right
+
+    # returns true, if drone is in crossroad.
+    # at least two pathes (except backwards) should exist
+    # based on sensor values given from getForwardDistances()
+    def isCrossRoad(sensors):
+        left = (sensors[0] < 0)
+        forward = (sensors[2] < 0)
+        right = (sensors[4] < 0)
+        return (left and forward) or (left and right) or (forward and right)
+
     # returns true, if drone is exaclty in the middle of crossroad.
     # based on diagonal sensor values
     def isCrossroadMiddle():
+        # print(sensorValues[1], sensorValues[3], sensorValues[5], sensorValues[7])
         return ((abs(sensorValues[1] - sensorValues[3]) <= 0.1)
         and (abs(sensorValues[1] - sensorValues[5]) <= 0.1)
         and (abs(sensorValues[1] - sensorValues[7]) <= 0.1))
@@ -295,15 +311,35 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     while not isFinish:
         stepSimulation()
         forwardDistances = getForwardDistances()
-        if (not crossRoadProceeded and ((forwardDistances[0] < 0) or (forwardDistances[4] < 0))):
-            # we are on crossroad
-            # check all diagonal sensors if they are almost equal
+
+        # ir strupcels
+        if (not crossRoadProceeded and (forwardDistances[0] > 0 and forwardDistances[2] > 0 and forwardDistances[4] > 0)):
+            # print('blocker')
+            direction = turnBackward()
+            crossRoadProceeded = True
+        
+        # if crossroad or turn
+        elif (not crossRoadProceeded and isCrossroadOrTurn(forwardDistances)):
+            # print('crossroad or turn')
+            
+            # we can't know is it crossroad or turn till it's middle
             if isCrossroadMiddle():
-                if (forwardDistances[0] < 0):
-                    direction = turnLeft()
-                elif (forwardDistances[4] < 0):
-                    direction = turnRight()
-                crossRoadProceeded = True
+                # print('middle')
+                
+                # if crossroad
+                if isCrossRoad(forwardDistances):
+                    print('is crossroad')
+                
+                # if turn
+                elif ((forwardDistances[0] < 0) or (forwardDistances[4] < 0)):
+                    # print('turn')
+                    if (forwardDistances[0] < 0):
+                        direction = turnLeft()
+                    elif (forwardDistances[4] < 0):
+                        direction = turnRight()
+                    crossRoadProceeded = True
+        
+        # if decision has already been made on this crossroad/turn
         elif not ((forwardDistances[0] < 0) or (forwardDistances[4] < 0)):
             crossRoadProceeded = False
 
