@@ -12,12 +12,12 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     client.runInSynchronousMode=True
 
     # Lucas Kanade parameters
-    lk_params = dict(winSize = (50,50),
+    lk_params = dict(winSize = (30,30),
                     maxLevel = 2,
                     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
-    image_width = 512
-    image_border = 100
+    image_width = 128
+    image_border = 35
     image_high = image_width - image_border
     x = image_width / 2
     y = image_width / 2
@@ -44,6 +44,8 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     old_image = []
     old_points = np.array([[x,y]], dtype = np.float32)
 
+    correctionCoef = 0.15
+    threshold = 0.05
     FORWARD = 0
     BACKWARD = 1
     LEFT = 2
@@ -56,7 +58,8 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     isFinish = False
 
     # drone movement speed
-    speed = 0.005
+    #speed = 0.005
+    speed = 0.01
 
     sensorValues = [0 for i in range(8)]
 
@@ -175,7 +178,23 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         directionProximitySensorCallback(6,msg)
     def FL_ProximitySensorCallback(msg):
         directionProximitySensorCallback(7,msg)
+
+       # return values: -1 = goLeft, +1 = goRight , 0 = stayCentered
+    def getCentration(forwardDistances):
+        lefty = forwardDistances[0]
+        righty = forwardDistances[4]
         
+        print(lefty, righty)
+        if ((abs(lefty-righty)>threshold) and lefty > 0):
+            if (lefty > righty): 
+                return 1
+            elif (lefty < righty):
+                return -1
+            else:
+                return 0
+        else:
+            return 0   
+
     # Set direction value
     def setDirection(dx, dy):
         global direction
@@ -212,6 +231,8 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         else:
             print('Bottom proximity sensor out of range')
 
+
+    
     # Handles new image from vision sensor
     def imageCallback(msg):
         global x, y, old_image, old_points
@@ -240,7 +261,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         position[0] += (dx * half_width) / (image_width / 2)
         position[1] += (dy * half_width) / (image_width / 2)
         # position[2] is set by bottomProximitySensorCallback()
-        print([round(num, 2) for num in position])
+        # print([round(num, 2) for num in position])
 
         x,y = new_points.ravel()
 
@@ -256,6 +277,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
             client.simxSynchronousTrigger()
         else:
             client.simxSpinOnce()
+            
 
     visionSensorHandle=client.simxGetObjectHandle('Vision_sensor',client.simxServiceCall())
     quadcopterTargetHandle=client.simxGetObjectHandle('Quadcopter_target',client.simxServiceCall())
@@ -306,9 +328,13 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     quadcopterTargetInitMsg = client.simxGetObjectPosition(quadcopterTargetHandle[1], -1, client.simxServiceCall())
     quadcopterTargetPos = quadcopterTargetInitMsg[1]
     
+ 
+
+
     crossRoadProceeded = False
     # main loop
     while not isFinish:
+        correction = 0
         stepSimulation()
         forwardDistances = getForwardDistances()
 
@@ -320,7 +346,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         
         # if crossroad or turn
         elif (not crossRoadProceeded and isCrossroadOrTurn(forwardDistances)):
-            # print('crossroad or turn')
+            print('crossroad or turn')
             
             # we can't know is it crossroad or turn till it's middle
             if isCrossroadMiddle():
@@ -340,19 +366,34 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
                     crossRoadProceeded = True
         
         # if decision has already been made on this crossroad/turn
-        elif not ((forwardDistances[0] < 0) or (forwardDistances[4] < 0)):
+        elif (forwardDistances[0] > 0) and (forwardDistances[4] > 0):
             crossRoadProceeded = False
+            correction = getCentration(forwardDistances) 
+            print (forwardDistances[0], forwardDistances[4])
+        #else:
+        #    correction = getCentration(forwardDistances) 
+        #    print (forwardDistances[0], forwardDistances[4])
+            
 
         # movement
         if (direction == FORWARD) or (direction == BACKWARD):
             coord = 1
-        else:
+            coordCentration = 0
+
+        else: #left or right
             coord = 0
+            coordCentration = 1
+
+        if (direction == FORWARD) or (direction == LEFT):
+            correction *= -1
+        
         if (direction == BACKWARD) or (direction == LEFT):
             multiplier = -1
         else:
             multiplier = 1
-        quadcopterTargetPos[coord] += multiplier * speed
+        quadcopterTargetPos[coord] += multiplier * speed 
+        quadcopterTargetPos[coordCentration] += correction * speed * correctionCoef
+    
         client.simxSetObjectPosition(quadcopterTargetHandle[1], -1, quadcopterTargetPos, client.simxServiceCall())
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
