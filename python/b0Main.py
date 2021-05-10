@@ -7,9 +7,32 @@ import time
 from cv2 import cv2
 import numpy as np
 
+# Crossroad class.
+#
+# Stores crossroad coordinates
+class Crossroad:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+# Mark class.
+#
+# Stores crossroad index, direction from crossroad and it's mark. It can be 0, 1 or 2
+class Mark:
+    def __init__(self, crossroad, direction, mark):
+        self.crossroad = crossroad
+        self.direction = direction
+        self.mark = mark
+
 with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as client:
     client.doNextStep=True
     client.runInSynchronousMode=True
+
+    # list of Crossroad
+    crossroads = []
+
+    # list of Mark
+    marks = []
 
     # Lucas Kanade parameters
     lk_params = dict(winSize = (30,30),
@@ -23,6 +46,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     y = image_width / 2
     # angle = 20 # degrees
     tan_angle = 0.3639702342662023613510478827768340438904717837537381141956129887
+
 
     # Formulas for x,y calculation depending on z
     #
@@ -58,13 +82,69 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     isFinish = False
 
     # drone movement speed
-    #speed = 0.005
     speed = 0.01
 
     sensorValues = [0 for i in range(8)]
 
+    # add Crossroad object to crossroads list
+    def setVisitedCrossroad(x, y):
+        crossroads.append(Crossroad(x, y))
+        return len(crossroads) - 1
+
+    # get index of crossroad (x, y) in crossroads list.
+    # if no such crossroad in list, returns -1
+    def getVisitedCrossroadIndex(x, y):
+        eps = 0.1
+        for i in range(len(crossroads)):
+            crossroad = crossroads[i]
+            if (abs(x - crossroad.x) < eps) and (abs(y - crossroad.y) < eps):
+                return i
+        return -1
+    
+    # get mark of crossroad and direction.
+    # if no such crossroad and direction in marks list, creates such with a mark of 0.
+    def getDirectionMark(crossroad, direction):
+        for i in range(len(marks)):
+            if (marks[i].crossroad == crossroad) and (marks[i].direction == direction):
+                return marks[i].mark
+        marks.append(Mark(crossroad, direction, 0))
+        return 0
+
+    # increments mark of crossroad and direction.
+    # if no such crossroad and direction in marks list, creates such with a mark of 1.
+    def markDirection(crossroad, direction):
+        for i in range(len(marks)):
+            if (marks[i].crossroad == crossroad) and (marks[i].direction == direction):
+                marks[i].mark += 1
+                return
+        marks.append(Mark(crossroad, direction, 1))
+        return
+
+    # get marks of all crossroad directions, sorted clockwise, according to current direction
+    def getSortedCrossroadMarks(crossroad, direction):
+        markForward = -1
+        markLeft = -1
+        markBackward = -1
+        markRight = -1
+        if sensorValues[0] < 0:
+            markForward = getDirectionMark(crossroad, FORWARD)
+        if sensorValues[2] < 0:
+            markRight = getDirectionMark(crossroad, RIGHT)
+        if sensorValues[4] < 0:
+            markBackward = getDirectionMark(crossroad, BACKWARD)
+        if sensorValues[6] < 0:
+            markLeft = getDirectionMark(crossroad, LEFT)
+        if direction == FORWARD:
+            return [markLeft, markForward, markRight, markBackward]
+        elif direction == RIGHT:
+            return [markForward, markRight, markBackward, markLeft]
+        elif direction == BACKWARD:
+            return [markRight, markBackward, markLeft, markForward]
+        else: # LEFT
+            return [markBackward, markLeft, markForward, markRight]
+
     # returns rotated direction by 90 degrees to the left
-    def turnLeft():
+    def getLeft():
         if direction == FORWARD:
             return LEFT
         elif direction == RIGHT:
@@ -75,7 +155,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
             return BACKWARD
 
     # returns rotated direction by 90 degrees to the right
-    def turnRight():
+    def getRight():
         if direction == FORWARD:
             return RIGHT
         elif direction == RIGHT:
@@ -86,7 +166,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
             return FORWARD
 
     # returns rotated direction by 180 degrees
-    def turnBackward():
+    def getBackward():
         if direction == FORWARD:
             return BACKWARD
         elif direction == RIGHT:
@@ -184,7 +264,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         lefty = forwardDistances[0]
         righty = forwardDistances[4]
         
-        print(lefty, righty)
+        # print(lefty, righty)
         if ((abs(lefty-righty)>threshold) and lefty > 0):
             if (lefty > righty): 
                 return 1
@@ -235,7 +315,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     
     # Handles new image from vision sensor
     def imageCallback(msg):
-        global x, y, old_image, old_points
+        global x, y, old_image, old_points, position
         resolution = msg[1]
         image = bytearray(msg[2])
         sensorImage = np.array(image, dtype=np.uint8)
@@ -341,12 +421,12 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         # ir strupcels
         if (not crossRoadProceeded and (forwardDistances[0] > 0 and forwardDistances[2] > 0 and forwardDistances[4] > 0)):
             # print('blocker')
-            direction = turnBackward()
+            direction = getBackward()
             crossRoadProceeded = True
         
         # if crossroad or turn
         elif (not crossRoadProceeded and isCrossroadOrTurn(forwardDistances)):
-            print('crossroad or turn')
+            # print('crossroad or turn')
             
             # we can't know is it crossroad or turn till it's middle
             if isCrossroadMiddle():
@@ -354,27 +434,59 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
                 
                 # if crossroad
                 if isCrossRoad(forwardDistances):
-                    print('is crossroad')
+                    # print('is crossroad')
+
+                    # check if this is new crossroad
+                    crossroadIndex = getVisitedCrossroadIndex(position[0], position[1])
+                    if crossroadIndex == -1:
+                        # crossroad is new
+                        crossroadIndex = setVisitedCrossroad(position[0], position[1])
+                    print('crossroad number:', crossroadIndex)
+                    markDirection(crossroadIndex, getBackward())
+                    sortedMarks = getSortedCrossroadMarks(crossroadIndex, direction)
+                    print(sortedMarks)
+                    
+                    # If you arrive at a junction that has no marks (except possibly for the one on the path by which you entered),
+                    # choose an arbitrary unmarked path, follow it, and mark it.
+                    if (sortedMarks[0] == 0) or (sortedMarks[1] == 0) or (sortedMarks[2] == 0):
+                        if sortedMarks[0] == 0:
+                            direction = getLeft()
+                        elif sortedMarks[2] == 0:
+                            direction = getRight()
+                        print('zeros', direction)
+                        markDirection(crossroadIndex, direction)
+                        crossRoadProceeded = True
+                    elif (sortedMarks[3] == 1):
+                        # If the path you came in on has only one mark, turn around and return along that path, marking it again.
+                        # In particular this case should occur whenever you reach a dead end
+                        direction = getBackward()
+                        print('go back', direction)
+                        markDirection(crossroadIndex, direction)
+                        crossRoadProceeded = True
+                    else:
+                        # If not, choose arbitrarily one of the remaining paths with the fewest marks (zero if possible, else one), follow that path, and mark it.
+                        if (sortedMarks[0] >= 0) and (sortedMarks[0] < 2):
+                            direction = getLeft()
+                        elif (sortedMarks[2] >= 0) and (sortedMarks[2] < 2):
+                            direction = getRight()
+                        print('choose best of remaining', direction)
+                        markDirection(crossroadIndex, direction)
+                        crossRoadProceeded = True
                 
                 # if turn
                 elif ((forwardDistances[0] < 0) or (forwardDistances[4] < 0)):
                     # print('turn')
                     if (forwardDistances[0] < 0):
-                        direction = turnLeft()
+                        direction = getLeft()
                     elif (forwardDistances[4] < 0):
-                        direction = turnRight()
+                        direction = getRight()
                     crossRoadProceeded = True
         
         # if decision has already been made on this crossroad/turn
         elif (forwardDistances[0] > 0) and (forwardDistances[4] > 0):
             crossRoadProceeded = False
             correction = getCentration(forwardDistances) 
-            print (forwardDistances[0], forwardDistances[4])
-        #else:
-        #    correction = getCentration(forwardDistances) 
-        #    print (forwardDistances[0], forwardDistances[4])
             
-
         # movement
         if (direction == FORWARD) or (direction == BACKWARD):
             coord = 1

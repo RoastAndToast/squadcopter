@@ -115,7 +115,7 @@ function sysCall_actuation()
     y_str = string.format(" %.2f", pos_relative_y)
     z_str = string.format(" %.2f", pos_relative_z)
     d_str = string.format(" %.2f", dist)
-    print(x_str, y_str, d_str)
+    -- print(x_str, y_str, d_str)
  
     --change to pos form flow thing
     currPos = {pos_relative_x, pos_relative_y, pos_relative_z}
