@@ -14,9 +14,9 @@ include_template.lua - template for Coppelia script to include .lua script from 
 
 ## Python skriptu izmantošanas pamācība
 		
-1. #### Uzstādīt Python v. #.#.#
+1. #### Uzstādīt Python v. 3.9.5
 
-  	To var izdarīt sekojot šai pamācībai - 
+  	To var izdarīt sekojot šai pamācībai - https://docs.python.org/3/using/windows.html
  
 2. #### Ieslēgt Blue Zero `Add-ons -> B0RemoteApiServer`
  
