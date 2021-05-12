@@ -229,7 +229,9 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
         global isFinish
         if msg[0] == False:
             return
-        isFinish = msg[1]
+        if msg[1]:
+            isFinish = True
+        #isFinish = msg[1]
 
     # Direction proximity sensor callback
     def directionProximitySensorCallback(sensor_id, msg):
@@ -364,7 +366,11 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     quadcopterBaseHandle = client.simxGetObjectHandle('Quadcopter_base', client.simxServiceCall())
     quadcopterHandle = client.simxGetObjectHandle('Quadcopter', client.simxServiceCall())
     bottomProximitySensorHandle=client.simxGetObjectHandle('bottom_proximity_sensor',client.simxServiceCall())
-    finishFirstHandle = client.simxGetObjectHandle('Finish_first', client.simxServiceCall())
+    finish1Handle = client.simxGetObjectHandle('Finish_first', client.simxServiceCall())
+    finish2Handle = client.simxGetObjectHandle('Finish_second', client.simxServiceCall())
+    finish3Handle = client.simxGetObjectHandle('Finish_third', client.simxServiceCall())
+    finish4Handle = client.simxGetObjectHandle('Finish_fourth', client.simxServiceCall())
+
 
     # clockwise, 0 for forward sensor
     # sensor handle array
@@ -398,7 +404,10 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
     client.simxReadProximitySensor(sensorHandles[6][1],client.simxDefaultSubscriber(L_ProximitySensorCallback))
     client.simxReadProximitySensor(sensorHandles[7][1],client.simxDefaultSubscriber(FL_ProximitySensorCallback))
 
-    client.simxCheckCollision(quadcopterHandle[1], finishFirstHandle[1], client.simxDefaultSubscriber(finishCheck))
+    client.simxCheckCollision(quadcopterHandle[1], finish1Handle[1], client.simxDefaultSubscriber(finishCheck))
+    client.simxCheckCollision(quadcopterHandle[1], finish2Handle[1], client.simxDefaultSubscriber(finishCheck))
+    client.simxCheckCollision(quadcopterHandle[1], finish3Handle[1], client.simxDefaultSubscriber(finishCheck))
+    client.simxCheckCollision(quadcopterHandle[1], finish4Handle[1], client.simxDefaultSubscriber(finishCheck))
 
 
     client.simxGetSimulationStepStarted(client.simxDefaultSubscriber(simulationStepStarted))
@@ -412,7 +421,7 @@ with b0RemoteApi.RemoteApiClient('b0RemoteApi_pythonClient','b0RemoteApi') as cl
 
 
     crossRoadProceeded = False
-    # main loop
+    # main loop 
     while not isFinish:
         correction = 0
         stepSimulation()
