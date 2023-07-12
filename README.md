@@ -8,23 +8,16 @@ models - directory for models
 
 python - directory for .py scripts
 
+python/deprecated - archive directory for python deprecated API and programs.
+
 include_template.lua - template for Coppelia script to include .lua script from repository /lua directory
 
 ## Python skriptu izmantošanas pamācība
 		
-1. #### Uzstādīt Python v. #.#.#
+1. #### Uzstādīt Python v. 3.9.5
 
-  	To var izdarīt sekojot šai pamācībai - 
+  	To var izdarīt sekojot šai pamācībai - https://docs.python.org/3/using/windows.html
  
-2. #### Pārliecināties, ka Coppelia klausās noklusējuma API portu :19997, lai to izdarītu ir nepieciešams atvērt Coppelia instalācijas mapi
-
-  	Noklusējuma mape Windows vidē: `C:\Program Files\CoppeliaRobotics\CoppeliaSimEdu`
-
-  	Noklusējuma mape Linux vidē: `/usr/share/coppeliasim/`
-
-  	Instalācijas mapē atvērt remoteApiConnections.txtfailu un pārliecināties, ka portIndex1_port ir uzstādīts uz 19997.
-  	Lai izmaiņas tiktu pārlādētas ir nepieciešams aizvērt restartēt CoppeliaSIM (ja bija ieslēgta)
+2. #### Ieslēgt Blue Zero `Add-ons -> B0RemoteApiServer`
  
-3. #### Ieslēgt izstrādes konsoli CoppeliaSIM vidē, noņemot ķeksi no `Tools -> User Settings -> Hide console window`
- 
-4. #### Palaist `\squadcopter\python\simpleTest.py` testa failu. Rezultātā, CoppeliaSIM izstrādes konsolē būtu jābūt parādītai peles kursora pozīcijai simulācijas vidē un "Hello CoppeliaSim!" tekstam.
+3. #### Palaist `\squadcopter\python\b0Main.py` failu. Tam ir vajadzīgas bibliotēkas, instalējamas ar pip: numpy, msgpack, cv2

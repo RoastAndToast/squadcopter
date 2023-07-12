@@ -1,11 +1,12 @@
 function sysCall_init()
     -- do some initialization here
+    delta_mov = 0.03
 end
 
 function sysCall_actuation()
     -- put your actuation code here
     message,data,data2=sim.getSimulatorMessage()
-    thisHandle=sim.getObjectHandle('Quadricopter_target')
+    thisHandle=sim.getObjectHandle('Quadcopter_target')
     pos=sim.getObjectPosition(thisHandle, -1)
     x=pos[1]
     y=pos[2]
@@ -14,28 +15,22 @@ function sysCall_actuation()
     if (message==sim.message_keypress) then
         
         if (data[1]==100) then -- rightkey
-            x=x-0.05
-            print("right")--,pos[1], pos[2], pos[3])
+            x=x+delta_mov
         end
         if (data[1]==97) then -- left key
-            x=x+0.05
-            print("left")
+            x=x-delta_mov
         end
         if (data[1]==119) then -- up key
-            y=y-0.05
-            print("up")
+            y=y+delta_mov
         end
         if (data[1]==115) then -- down key
-            y=y+0.05
-            print("down")
+            y=y-delta_mov
         end
         if (data[1]==122) then -- down key
-            z=z-0.05
-            print("down")
+            z=z-delta_mov
         end
         if (data[1]==120) then -- down key
-            z=z+0.05
-            print("down")
+            z=z+delta_mov
         end
         newPos={x,y,z}
         sim.setObjectPosition(thisHandle, -1, newPos)
